@@ -1,0 +1,123 @@
+<!DOCTYPE html>
+<html>
+
+<head>
+    <meta charset="utf-8">
+    <title></title>
+</head>
+
+<body>
+
+    <h2>
+        <font color="#00bfff"> 输入待处理内容：</font>
+    </h2>
+
+    <textarea id="sqlLog" rows="13" cols="140" style="font-size:20px"></textarea>
+    <textarea id="sqlLog2" rows="1" cols="50" style="font-size:20px"></textarea>
+    <textarea id="sqlLog3" rows="1" cols="50" style="font-size:20px"></textarea>
+    <div style="border:0px deepskyblue solid;width:1425px;height:50px;text-align:right">
+        <button style="color:mediumblue;width:100px;height:60px" type="button"
+            onclick="clearLog(document.getElementById('sqlLog'))">
+            清空
+        </button>
+        <button style="color:mediumblue;width:100px;height:60px" type="submit"
+            onclick="f(document.getElementById('sqlLog'),1)">
+            解析字符
+        </button>
+        <button style="color:mediumblue;width:100px;height:60px" type="submit"
+            onclick="f(document.getElementById('sqlLog'),2)">
+            解析数字
+        </button>
+        <button style="color:mediumblue;width:100px;height:60px" type="submit"
+            onclick="f2(  document.getElementById('sqlLog') ,document.getElementById('sqlLog2'),document.getElementById('sqlLog3')   )">
+            提取""
+        </button>
+    </div>
+
+    <h2>
+        <font color="#32cd32">解析：</font>
+    </h2>
+
+    <textarea id="d1" rows="13" cols="140" style="font-size:20px"></textarea>
+    <div style="border:0px deepskyblue solid;width:1425px;height:50px;text-align:right">
+        <button style="color:mediumblue;width:100px;height:60px" type="button" onclick="copySQL()">复制SQL</button>
+    </div>
+
+    <div id="msg"
+        style="color:cornflowerblue;border:0px black solid;width:800px;height:20px;text-align:right;font-style: initial;font-size: large">
+    </div>
+    <script type="text/javascript">
+        function f(obj, obj2) {
+            var textVa = obj.value;
+            var text = textVa.split('\n')
+            for (let i = 0; i < text.length; i++) {
+
+                var f = text[i];
+                if (f) {
+                    if (obj2 == 1) {
+                        f = "'" + f + "'";
+                    }
+                    text[i] = f;
+                    if (i != text.length - 1) {
+                        text[i] = f;
+                    }
+                }
+            }
+            text = text.filter((s) => {
+                return s && s.trim();     // 注：IE9(不包含IE9)以下的版本没有trim()方法
+            });
+            text = "(" + text + ")";
+            text = text.replace(/(\n)/g, "");
+            console.log(text);
+            document.getElementById("d1").innerHTML = text;
+            return textVa;
+        }
+        function f2(obj, obj2, obj3) {
+            var textVa = obj.value;
+            let text =
+                textVa.split('\n').map(item => {
+                    let pattern = /"([^"]*)"/;
+                    let match = item.match(pattern);
+                    if (match && match[1]) {
+                        let result;
+                        if (obj2 && obj2.value) {
+                            if (obj2.value == 1) {
+                                result = '<td>{{item.' + match[1].replace(/"/g, '') + '}}</td>';
+                            } else if (obj2.value == 2) {
+                                result = '<td>' + match[1].replace(/"/g, '') + '</td>';
+                            } else {
+                                result = obj2.value + match[1].replace(/"/g, '') + obj3.value;
+                            }
+                        } else {
+                            result = match[1].replace(/"/g, '');
+                        }
+                        return result;
+                    } return '';
+                });
+            text = text.join('\n');
+            console.log(text);
+            document.getElementById("d1").innerHTML = text;
+            return textVa;
+        }
+        function copySQL() {
+            var SQL = document.getElementById("d1");
+            SQL.select(); // 选择对象
+            document.execCommand("Copy"); // 执行浏览器复制命令
+            var msg = document.getElementById("msg");
+            msg.innerHTML = "已复制到剪切板";
+            setTimeout(function () {
+                msg.innerHTML = "";
+            }, 3000);
+
+        }
+
+        function clearLog(obj) {
+            obj.select();
+            obj.value = "";
+        }
+
+    </script>
+</body>
+
+
+</html>
