@@ -25,6 +25,7 @@
             --font-mono: ui-monospace, "Cascadia Mono", "JetBrains Mono", Consolas, "Courier New", monospace;
             --r-lg: 12px;
             --r-md: 9px;
+            --r-sm: 6px;
         }
 
         html,
@@ -297,6 +298,70 @@
 
         .field::-webkit-scrollbar-corner {
             background: transparent;
+        }
+
+        /* 自定义规则（前缀 / 后缀 / 分隔符） */
+        .rules {
+            display: flex;
+            flex: none;
+            flex-wrap: wrap;
+            align-items: flex-end;
+            gap: 8px 10px;
+            margin-top: 10px;
+            padding-top: 10px;
+            border-top: 1px dashed var(--line-soft);
+        }
+
+        .rules__label {
+            padding-bottom: 9px;
+            color: var(--muted);
+            font-family: var(--font-mono);
+            font-size: 10.5px;
+            letter-spacing: .16em;
+        }
+
+        .rule {
+            flex: 1 1 118px;
+            display: flex;
+            flex-direction: column;
+            gap: 4px;
+            min-width: 0;
+        }
+
+        .rule > span {
+            color: var(--faint);
+            font-family: var(--font-mono);
+            font-size: 10.5px;
+            letter-spacing: .1em;
+        }
+
+        .input {
+            height: 32px;
+            padding: 0 10px;
+            border: 1px solid var(--line-soft);
+            border-radius: var(--r-sm);
+            background: var(--well);
+            color: var(--text);
+            font: 13px/1 var(--font-mono);
+            outline: none;
+            transition: border-color .18s ease, box-shadow .18s ease;
+        }
+
+        .input::placeholder {
+            color: var(--faint);
+        }
+
+        .input:focus {
+            border-color: var(--amber);
+            box-shadow: 0 0 0 3px var(--amber-glow);
+        }
+
+        /* 自定义按钮上的规则预览，过长省略 */
+        .rail__btn .rail__btn-preview {
+            max-width: 100%;
+            overflow: hidden;
+            text-overflow: ellipsis;
+            white-space: nowrap;
         }
 
         /* 总数据量读数 */
@@ -719,6 +784,15 @@
                     <textarea class="field" id="sqlLog" wrap="off" spellcheck="false"
                         placeholder="每行一条，直接粘贴：&#10;1001&#10;1002&#10;1003"></textarea>
                 </div>
+                <div class="rules">
+                    <span class="rules__label">自定义</span>
+                    <label class="rule"><span>前缀</span><input class="input" id="rulePre" type="text"
+                            spellcheck="false" value='"'></label>
+                    <label class="rule"><span>后缀</span><input class="input" id="ruleSuf" type="text"
+                            spellcheck="false" value='"'></label>
+                    <label class="rule"><span>分隔符</span><input class="input" id="ruleSep" type="text"
+                            spellcheck="false" value=","></label>
+                </div>
             </section>
 
             <div class="rail" role="group" aria-label="转换操作">
@@ -728,6 +802,10 @@
                 </button>
                 <button class="btn rail__btn" type="button" data-run="plain" title="每行原样，用逗号连接">
                     <b>解析数字</b><span>(1,2)</span>
+                </button>
+                <button class="btn rail__btn" type="button" data-run="custom"
+                    title="每行套上自定义前缀与后缀，按分隔符连接（不加最外层括号）">
+                    <b>自定义</b><span class="rail__btn-preview" id="rulePreview">a,b</span>
                 </button>
             </div>
 
@@ -762,7 +840,7 @@
         </div>
 
         <footer class="foot">
-            <span><kbd>Ctrl</kbd> + <kbd>1</kbd> <kbd>2</kbd> 运行对应转换</span>
+            <span><kbd>Ctrl</kbd> + <kbd>1</kbd> <kbd>2</kbd> <kbd>3</kbd> 运行对应转换</span>
             <span><kbd>Ctrl</kbd> + <kbd>Enter</kbd> 重复上次转换</span>
             <span>纯本地页面 · 无外部依赖</span>
         </footer>
@@ -780,6 +858,10 @@
             const outPanel = document.querySelector('.panel--out');
             const toastEl = document.getElementById('msg');
             const railBtns = [...document.querySelectorAll('[data-run]')];
+            const rulePre = document.getElementById('rulePre');
+            const ruleSuf = document.getElementById('ruleSuf');
+            const ruleSep = document.getElementById('ruleSep');
+            const rulePreview = document.getElementById('rulePreview');
             const nums = {
                 inLines: document.getElementById('inLines'),
                 inChars: document.getElementById('inChars'),
@@ -831,10 +913,11 @@
                 toastTimer = setTimeout(() => toastEl.classList.remove('is-on'), 2600);
             };
 
-            /* 写出结果，同时记录条目数 */
-            const writeOut = (items) => {
+            /* 写出结果，同时记录条目数；wrap 为 false 时不加最外层括号 */
+            const writeOut = (items, sep = ',', wrap = true) => {
                 outItems = items.length;
-                elOut.value = items.length ? '(' + items.join(',') + ')' : '';
+                const body = items.join(sep);
+                elOut.value = items.length ? (wrap ? `(${body})` : body) : '';
                 paintAll();
                 restart(outPanel, 'is-hit');
             };
@@ -848,6 +931,18 @@
             /* 解析数字：每行原样，跳过空行 → (1,2) */
             const numberItems = (raw) => raw.split('\n').filter((line) => line.trim());
 
+            /* 自定义：每行套上前缀后缀，按指定分隔符连接 → "a","b" */
+            const customItems = (raw) => raw.split('\n')
+                .filter((line) => line.trim())
+                .map((line) => rulePre.value + line + ruleSuf.value);
+
+            /* 自定义规则在按钮上的实时预览 */
+            const paintPreview = () => {
+                const pre = rulePre.value;
+                const suf = ruleSuf.value;
+                rulePreview.textContent = pre + 'a' + suf + ruleSep.value + pre + 'b' + suf;
+            };
+
             const run = (mode) => {
                 const raw = elIn.value;
                 if (!raw.trim()) {
@@ -857,9 +952,15 @@
                 }
                 lastRun = mode;
 
-                const items = mode === 'quote' ? quotedItems(raw) : numberItems(raw);
-                writeOut(items);
-                showToast(`${mode === 'quote' ? '已生成字符列表' : '已生成数字列表'}，共 ${items.length} 条`);
+                if (mode === 'custom') {
+                    const items = customItems(raw);
+                    writeOut(items, ruleSep.value, false);
+                    showToast(`已按自定义规则生成，共 ${items.length} 条`);
+                } else {
+                    const items = mode === 'quote' ? quotedItems(raw) : numberItems(raw);
+                    writeOut(items);
+                    showToast(`${mode === 'quote' ? '已生成字符列表' : '已生成数字列表'}，共 ${items.length} 条`);
+                }
 
                 restart(bench, 'is-firing');
                 setTimeout(() => bench.classList.remove('is-firing'), 900);
@@ -906,6 +1007,9 @@
                 paintAll();
             });
 
+            /* 自定义参数改动时刷新按钮预览 */
+            [rulePre, ruleSuf, ruleSep].forEach((el) => el.addEventListener('input', paintPreview));
+
             /* 行号栏跟随文本框滚动 */
             const follow = (ta, gut) => ta.addEventListener('scroll', () => {
                 gut.scrollTop = ta.scrollTop;
@@ -915,7 +1019,7 @@
 
             document.addEventListener('keydown', (event) => {
                 if (!event.ctrlKey && !event.metaKey) return;
-                const shortcuts = { '1': 'quote', '2': 'plain' };
+                const shortcuts = { '1': 'quote', '2': 'plain', '3': 'custom' };
                 if (shortcuts[event.key]) {
                     event.preventDefault();
                     run(shortcuts[event.key]);
@@ -928,6 +1032,7 @@
             });
 
             paintAll();
+            paintPreview();
             elIn.focus();
         })();
     </script>
